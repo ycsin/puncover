@@ -13,15 +13,27 @@ class GCCTools:
         self.gcc_base_filename = gcc_base_filename
 
     def gcc_tool_path(self, name):
-        path = self.gcc_base_filename + name
+        if os.name == 'nt':
+          path = self.gcc_base_filename + name + ".exe"
+        else:
+          path = self.gcc_base_filename + name
+
         if not os.path.isfile(path):
             raise Exception("Could not find %s" % path)
 
         return path
 
     def gcc_tool_lines(self, name, args, cwd=None):
-        proc = subprocess.Popen([self.gcc_tool_path(name)] + args, stdout=subprocess.PIPE, cwd=cwd)
-        return [l.decode() for l in proc.stdout.readlines()]
+        if self.gcc_tool_path(name).find('arm-none-eabi-c++filt') != -1:
+            proc = subprocess.Popen([self.gcc_tool_path(name)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, universal_newlines=True, cwd=cwd)
+            temp = []
+            for elem in args:
+                temp.append(elem + '\n')
+            out, err = proc.communicate(''.join(temp))
+            return out.split('\n')
+        else:
+            proc = subprocess.Popen([self.gcc_tool_path(name)] + args, stdout=subprocess.PIPE, cwd=cwd)
+            return [l.decode() for l in proc.stdout.readlines()]
 
     def get_assembly_lines(self, elf_file):
         return self.gcc_tool_lines('objdump', ['-dslw', os.path.basename(elf_file)], os.path.dirname(elf_file))
